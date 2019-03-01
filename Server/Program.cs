@@ -23,6 +23,7 @@ namespace Server
         private static Dictionary<int, Player> dictPlayers = new Dictionary<int, Player>();
         private static int currentNameOfPlayer = 0;
         private static readonly object locker = new object();
+        private static readonly int WIDTHBALL = 50, HEIGHTBALL = 50;
 
         static void Main(string[] args)
         {
@@ -39,13 +40,7 @@ namespace Server
             //Connexio del Client
             while (true)
             {
-                Client = Server.AcceptTcpClient();
-                Console.WriteLine("Client connectat");
-
-
-                Thread clientNou = new Thread(serverResponse);
-                clientNou.SetApartmentState(ApartmentState.STA);
-                clientNou.Start(Client);
+                acceptNewTcpClient(Server);                
             }
 
             Console.WriteLine("Server finalitzat");
@@ -54,14 +49,24 @@ namespace Server
             Console.ReadLine();
         }
 
-        static void serverResponse(object TcpClient)
+        private static void acceptNewTcpClient(TcpListener server)
         {
-            NetworkStream ServerNS = null;
+            Client = Server.AcceptTcpClient();
+            Console.WriteLine("Client connectat");
+
+
+            Thread clientNou = new Thread(serverResponse);
+            clientNou.SetApartmentState(ApartmentState.STA);
+            clientNou.Start(Client);
+        }
+
+        private static void serverResponse(object TcpClient)
+        {
             TcpClient client = (TcpClient)TcpClient;
 
             try
             {
-                ServerNS = Client.GetStream();
+                NetworkStream ServerNS = Client.GetStream();
 
                 if (ServerNS != null)
                 {
@@ -97,7 +102,7 @@ namespace Server
             var playerString = SerializatePlayer.Serializate(playerN);
             byte[] playerBytes = Encoding.UTF8.GetBytes(playerString);
 
-            Thread broadcastPlayers = new Thread(() => waitXsecondsForBroadcast(playerN, playerString.Length, playerBytes));
+            Thread broadcastPlayers = new Thread(() => firstBroadcastClients(playerN, playerString.Length, playerBytes));
 
             broadcastPlayers.Start();
             //broadcastPlayers(playerN, playerString.Length, playerBytes);
@@ -107,12 +112,11 @@ namespace Server
         private static Player newPlayer(NetworkStream serverNS)
         {
             Player player;
-            var tempCurrentPlayers = currentNameOfPlayer;
-            player = new Player(currentNameOfPlayer, serverNS);
 
             lock (locker)
             {
-                dictPlayers.Add(tempCurrentPlayers, player);
+                player = new Player(currentNameOfPlayer, serverNS);
+                dictPlayers.Add(currentNameOfPlayer, player);
                 currentNameOfPlayer++;
             }
 
@@ -121,16 +125,28 @@ namespace Server
 
             generateInitialPosition(player);
 
-            player.position.Width = 50;
-            player.position.Width = 50;
-            player.position.Height = 50;
+            player.position.Width = WIDTHBALL;
+            player.position.Height = HEIGHTBALL;
 
-            dictPlayers[player.id].position = player.position;
+            //dictPlayers[player.id].position = player.position;
+            setDictionary(player, serverNS);
+
+            return dictPlayers[player.id];
+        }
+
+        private static void setDictionary(Player player, NetworkStream serverNS)
+        {
             dictPlayers[player.id].networkStream = serverNS;
             dictPlayers[player.id].position = new Position(player.position.PosX, player.position.PosY, player.position.Width, player.position.Height);
             dictPlayers[player.id].ball = new Ball(generateRandomColor());
+        }
 
-            return dictPlayers[player.id];
+        private static void setDictionary(Player playerSend)
+        {
+            dictPlayers[playerSend.id].id = playerSend.id;
+            dictPlayers[playerSend.id].kills = playerSend.kills;
+            dictPlayers[playerSend.id].position = playerSend.position;
+            dictPlayers[playerSend.id].ball = playerSend.ball;
         }
 
         private static void generateInitialPosition(Player player)
@@ -168,10 +184,7 @@ namespace Server
                     Player playerSend = SerializatePlayer.Deserialization(bytesAsString);
                     if (dictPlayers[playerSend.id].position.PosX != playerSend.position.PosX || dictPlayers[playerSend.id].position.PosY != playerSend.position.PosY)
                     {
-                        dictPlayers[playerSend.id].id = playerSend.id;
-                        dictPlayers[playerSend.id].kills = playerSend.kills;
-                        dictPlayers[playerSend.id].position = playerSend.position;
-                        dictPlayers[playerSend.id].ball = playerSend.ball;
+                        setDictionary(playerSend);
 
                         //Console.WriteLine(listPlayers[playerSend.id].position.PosX);
                         //Console.WriteLine(listPlayers[playerSend.id].position.PosY);
@@ -225,7 +238,7 @@ namespace Server
             return color;
         }
 
-        private static void waitXsecondsForBroadcast(Player playerSend, int BytesRebuts, byte[] BufferLocal)
+        private static void firstBroadcastClients(Player playerSend, int BytesRebuts, byte[] BufferLocal)
         {
             //Thread.Sleep(6000);
             broadcastPlayers(playerSend, BytesRebuts, BufferLocal);
