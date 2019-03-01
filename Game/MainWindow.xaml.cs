@@ -1,22 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Runtime.Serialization;
 using System.Text;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 using Newtonsoft.Json;
 
@@ -44,6 +35,7 @@ namespace Game
         public MainWindow()
         {
             InitializeComponent();
+
             Loop();
             createPlayer();
         }
@@ -96,6 +88,7 @@ namespace Game
         private void receivedNewPlayer(object currentClientNSObject)
         {
             string player;
+            bool close = false;
             NetworkStream currentClientNS = (NetworkStream)currentClientNSObject;
             do
             {
@@ -123,7 +116,7 @@ namespace Game
                 {
 
                 }
-            } while (true);
+            } while (!close);
         }
 
         private void clientListener(NetworkStream currentClientNS)
