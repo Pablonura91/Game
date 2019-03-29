@@ -32,16 +32,21 @@ namespace Server
 
             Server = new TcpListener(ServerEndPoint);
             Console.WriteLine("Servidor creat");
-
-            Server.Start();
-            Console.WriteLine("Servidor iniciat");
-
-            //Connexio del Client
-            while (true)
+            try
             {
-                acceptNewTcpClient(Server);                
-            }
+                Server.Start();
+                Console.WriteLine("Servidor iniciat");
 
+                //Connexio del Client
+                while (true)
+                {
+                    acceptNewTcpClient(Server);
+                }
+            }
+            catch
+            {
+
+            }
             Console.WriteLine("Server finalitzat");
 
             Server.Stop();
@@ -239,7 +244,7 @@ namespace Server
 
         private static void firstBroadcastClients(Player playerSend, int BytesRebuts, byte[] BufferLocal)
         {
-            //Thread.Sleep(6000);
+            //Thread.Sleep(10000);
             broadcastPlayers(playerSend, BytesRebuts, BufferLocal);
             queryPlayersPlaying(playerSend);
         }

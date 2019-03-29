@@ -31,6 +31,7 @@ namespace Game
         private DispatcherTimer dTimer = new DispatcherTimer();
         Dictionary<int, Player> dicPlayers = new Dictionary<int, Player>();
         Dictionary<int, BallGraphics> dicBallgraphics = new Dictionary<int, BallGraphics>();
+        Dictionary<int, BallGraphics> dicObjectsgraphics = new Dictionary<int, BallGraphics>();
 
         public MainWindow()
         {
@@ -87,34 +88,53 @@ namespace Game
 
         private void receivedNewPlayer(object currentClientNSObject)
         {
-            string player;
+            string player = "";
+            int bytesFromBuffer;
             bool close = false;
             NetworkStream currentClientNS = (NetworkStream)currentClientNSObject;
             do
             {
-                do
+                if (currentClientNS.CanRead)
                 {
-                    byte[] receivedBuffer = new byte[1024];
-                    int bytesFromBuffer = currentClientNS.Read(receivedBuffer, 0, receivedBuffer.Length);
-
-                    player = Encoding.UTF8.GetString(receivedBuffer, 0, bytesFromBuffer);
-                } while (currentClientNS.DataAvailable);
-
-                try
-                {
-                    Player newPlayerFromSplit = SerializatePlayer.Deserialization(player);
-
-                    dicPlayers.Add(newPlayerFromSplit.id, newPlayerFromSplit);
-
-                    Dispatcher.Invoke(() =>
+                    do
                     {
-                        CreateBall(newPlayerFromSplit);
-                    });
+                        try
+                        {
+                            byte[] receivedBuffer = new byte[1024];
+                            bytesFromBuffer = currentClientNS.Read(receivedBuffer, 0, receivedBuffer.Length);
 
+                            player = Encoding.UTF8.GetString(receivedBuffer, 0, bytesFromBuffer);
+                        }
+                        catch (System.IO.IOException ex)
+                        {
+                            // if the ReceiveTimeout is reached an IOException will be raised...
+                            // with an InnerException of type SocketException and ErrorCode 10060
+                            var socketExept = ex.InnerException as SocketException;
+                            if (socketExept == null || socketExept.ErrorCode != 10060)
+
+                                // if it is the receive timeout, then reading ended
+                                bytesFromBuffer = 0;
+                        }
+                    } while (currentClientNS.DataAvailable);
                 }
-                catch (Exception e)
+                if (player != "")
                 {
+                    try
+                    {
+                        Player newPlayerFromSplit = SerializatePlayer.Deserialization(player);
 
+                        dicPlayers.Add(newPlayerFromSplit.id, newPlayerFromSplit);
+
+                        Dispatcher.Invoke(() =>
+                        {
+                            CreateBall(newPlayerFromSplit);
+                        });
+
+                    }
+                    catch (Exception e)
+                    {
+
+                    }
                 }
             } while (!close);
         }
@@ -177,8 +197,14 @@ namespace Game
 
         public void CreateBall(Player player)
         {
-            dicBallgraphics.Add(player.id, new BallGraphics(player.position.Width, player.position.Height, player.ball.color));
-
+            if (!dicBallgraphics.ContainsKey(player.id))
+            {
+                dicBallgraphics.Add(player.id, new BallGraphics(player.position.Width, player.position.Height, player.ball.color));
+            } else
+            {
+                CanvasBalls.Children.Remove(dicBallgraphics[player.id].ShapeBall);
+                dicBallgraphics[player.id] = new BallGraphics(player.position.Width, player.position.Height, player.ball.color);
+            }
             CanvasBalls.Children.Add(dicBallgraphics[player.id].ShapeBall);
             DrawBall(player, dicBallgraphics[player.id]);
         }
@@ -206,20 +232,97 @@ namespace Game
             switch (e.Key)
             {
                 case Key.D:
-                    dicPlayers[indexPlayer].position.PosX = dicPlayers[indexPlayer].position.PosX + 4;
+                    if (checkPosition(dicPlayers[indexPlayer].position, 'X', 4))
+                    {
+                        dicPlayers[indexPlayer].position.PosX = dicPlayers[indexPlayer].position.PosX + 4;
+                    }
+                    else
+                    {
+                        reloadPlayer();
+                        delDrawObject(dicObjectsgraphics[dicPlayers[indexPlayer].position.PosX + dicPlayers[indexPlayer].position.PosY].ShapeBall);
+                    }
                     break;
                 case Key.A:
-                    dicPlayers[indexPlayer].position.PosX = dicPlayers[indexPlayer].position.PosX - 4;
+                    if (checkPosition(dicPlayers[indexPlayer].position, 'X', -4))
+                    {
+                        dicPlayers[indexPlayer].position.PosX = dicPlayers[indexPlayer].position.PosX - 4;
+                    }
+                    else
+                    {
+                        reloadPlayer();
+                        delDrawObject(dicObjectsgraphics[dicPlayers[indexPlayer].position.PosX + dicPlayers[indexPlayer].position.PosY].ShapeBall);
+                    }
                     break;
                 case Key.S:
-                    dicPlayers[indexPlayer].position.PosY = dicPlayers[indexPlayer].position.PosY + 4;
+                    if (checkPosition(dicPlayers[indexPlayer].position, 'Y', 4))
+                    {
+                        dicPlayers[indexPlayer].position.PosY = dicPlayers[indexPlayer].position.PosY + 4;
+                    }
+                    else
+                    {
+                        reloadPlayer();
+                        delDrawObject(dicObjectsgraphics[dicPlayers[indexPlayer].position.PosX + dicPlayers[indexPlayer].position.PosY].ShapeBall);
+                    }
                     break;
                 case Key.W:
-                    dicPlayers[indexPlayer].position.PosY = dicPlayers[indexPlayer].position.PosY - 4;
+                    if (checkPosition(dicPlayers[indexPlayer].position, 'X', -4))
+                    {
+                        dicPlayers[indexPlayer].position.PosY = dicPlayers[indexPlayer].position.PosY - 4;
+                    }
+                    else
+                    {
+                        reloadPlayer();
+                        delDrawObject(dicObjectsgraphics[dicPlayers[indexPlayer].position.PosX + dicPlayers[indexPlayer].position.PosY].ShapeBall);
+                    }
                     break;
                 default:
                     break;
             }
+        }
+
+        private void reloadPlayer()
+        {
+            dicPlayers[indexPlayer].kills += 1;
+            dicPlayers[indexPlayer].position.Height += 10;
+            dicPlayers[indexPlayer].position.Width += 10;
+        }
+
+        private void delDrawObject(UIElement objectDraw)
+        {            
+            CanvasBalls.Children.Remove(objectDraw);
+            dicObjectsgraphics.Remove(dicPlayers[indexPlayer].position.PosX + dicPlayers[indexPlayer].position.PosY);
+            CreateBall(dicPlayers[indexPlayer]);
+        }
+
+        public bool checkPosition(Position position, char positionChange, int positionSum)
+        {
+            var tempPosX = position.PosX;
+            var tempPosY = position.PosY;
+            int iterations = positionSum < 0 ? 0 : 4;
+
+            for (int i = positionSum; i <= iterations; i++)
+            {
+                switch (positionChange)
+                {
+                    case 'X':
+                        tempPosX = position.PosX;
+                        tempPosX += i;
+                        break;
+                    case 'Y':
+                        tempPosY = position.PosY;
+                        tempPosY += i;
+                        break;
+                }
+                var test = tempPosX + tempPosY;
+                if (dicObjectsgraphics.ContainsKey(tempPosX + tempPosY))
+                {
+                    position.PosX = tempPosX;
+                    position.PosY = tempPosY;
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public void DrawObject(object object1)
@@ -227,14 +330,14 @@ namespace Game
             string objectMap = (string)object1;
 
             int[] rnd = JsonConvert.DeserializeObject<int[]>(objectMap);
-
-
+            
             this.Dispatcher.Invoke(() =>
             {
                 BallGraphics ballGraphics = new BallGraphics(10, 10, Colors.Black);
                 CanvasBalls.Children.Add(ballGraphics.ShapeBall);
                 Canvas.SetLeft(ballGraphics.ShapeBall, rnd[0]);
                 Canvas.SetTop(ballGraphics.ShapeBall, rnd[1]);
+                dicObjectsgraphics.Add(rnd[0] + rnd[1], ballGraphics);
             });
         }
     }
