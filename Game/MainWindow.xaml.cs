@@ -159,6 +159,15 @@ namespace Game
                         {
                             dicPlayers[newPlayerFromSplit.id].position.PosX = newPlayerFromSplit.position.PosX;
                             dicPlayers[newPlayerFromSplit.id].position.PosY = newPlayerFromSplit.position.PosY;
+                            if (newPlayerFromSplit.position.Width != dicPlayers[newPlayerFromSplit.id].position.Width)
+                            {
+                                this.Dispatcher.Invoke(() =>
+                                {
+                                    dicPlayers[newPlayerFromSplit.id].position.Width = newPlayerFromSplit.position.Width;
+                                    dicPlayers[newPlayerFromSplit.id].position.Height = newPlayerFromSplit.position.Height;
+                                    CreateBall(newPlayerFromSplit);
+                                });
+                            }
 
                             this.Dispatcher.Invoke(() =>
                             {
@@ -200,7 +209,8 @@ namespace Game
             if (!dicBallgraphics.ContainsKey(player.id))
             {
                 dicBallgraphics.Add(player.id, new BallGraphics(player.position.Width, player.position.Height, player.ball.color));
-            } else
+            }
+            else
             {
                 CanvasBalls.Children.Remove(dicBallgraphics[player.id].ShapeBall);
                 dicBallgraphics[player.id] = new BallGraphics(player.position.Width, player.position.Height, player.ball.color);
@@ -288,7 +298,7 @@ namespace Game
         }
 
         private void delDrawObject(UIElement objectDraw)
-        {            
+        {
             CanvasBalls.Children.Remove(objectDraw);
             dicObjectsgraphics.Remove(dicPlayers[indexPlayer].position.PosX + dicPlayers[indexPlayer].position.PosY);
             CreateBall(dicPlayers[indexPlayer]);
@@ -330,7 +340,7 @@ namespace Game
             string objectMap = (string)object1;
 
             int[] rnd = JsonConvert.DeserializeObject<int[]>(objectMap);
-            
+
             this.Dispatcher.Invoke(() =>
             {
                 BallGraphics ballGraphics = new BallGraphics(10, 10, Colors.Black);
