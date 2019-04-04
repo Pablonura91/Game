@@ -228,7 +228,7 @@ namespace Game
 
         void Timer_Tick(object sender, EventArgs e)
         {
-            DrawBall(dicPlayers[indexPlayer], dicBallgraphics[indexPlayer]);
+            DrawBall(dicPlayers[indexPlayer], dicBallgraphics[indexPlayer]);            
         }
 
         public void DrawBall(Player player, BallGraphics ballGraphics)
@@ -288,6 +288,8 @@ namespace Game
                 default:
                     break;
             }
+
+            checkPositionColisionPlayers();
         }
 
         private void reloadPlayer()
@@ -333,6 +335,27 @@ namespace Game
             }
 
             return true;
+        }
+
+        private void checkPositionColisionPlayers()
+        {
+            for (int i = 0; i < dicPlayers.Count; i++)
+            {
+                if (dicPlayers.ContainsKey(i))
+                {
+                    var tempPlayer = dicPlayers[i];
+                    foreach (Player playerSel in dicPlayers.Values)
+                    {
+                        var tempPositionTempPlayer = tempPlayer.position.PosX + tempPlayer.position.PosY + (tempPlayer.position.Width / 2);
+                        var tempPositionPlayerSel = playerSel.position.PosX + playerSel.position.PosY + (playerSel.position.Width /2);
+                        if (!tempPlayer.Equals(playerSel) && (tempPositionTempPlayer == tempPositionPlayerSel))
+                        {
+                            var ballDestroy = tempPlayer.kills > playerSel.kills ? playerSel : tempPlayer;
+                            CanvasBalls.Children.Remove(dicBallgraphics[ballDestroy.id].ShapeBall);
+                        }
+                    }
+                }
+            }
         }
 
         public void DrawObject(object object1)
